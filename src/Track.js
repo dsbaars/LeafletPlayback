@@ -5,13 +5,30 @@ L.Playback.Track = L.Class.extend({
         initialize : function (geoJSON, options) {
             options = options || {};
             var tickLen = options.tickLen || 250;
-            
+
             this._geoJSON = geoJSON;
             this._tickLen = tickLen;
             this._ticks = [];
             this._marker = null;
 
-            var sampleTimes = geoJSON.properties.time;
+            var sampleTimes = [];
+
+
+            // Mapbox "toGeojson" format
+            if (geoJSON.hasOwnProperty('type') && geoJSON.type == "FeatureCollection") {
+                geoJSON = geoJSON.features[0];
+            }
+
+            // Mapbox "toGeojson" format
+            if (geoJSON.properties.hasOwnProperty('coordTimes')) {
+                var timeStamps = geoJSON.properties.coordTimes;
+                for (i = 0; i < timeStamps.length; i++) {
+                    sampleTimes[i] = Date.parse(timeStamps[i]);
+                }
+            } else {
+                sampleTimes = geoJSON.properties.time;
+            }
+
             var samples = geoJSON.geometry.coordinates;
             var currSample = samples[0];
             var nextSample = samples[1];
@@ -70,14 +87,14 @@ L.Playback.Track = L.Class.extend({
                 t += tickLen;
                 while (t < nextSampleTime) {
                     ratio = (t - currSampleTime) / (nextSampleTime - currSampleTime);
-                    
+
                     if (nextSampleTime - currSampleTime > options.maxInterpolationTime){
                         this._ticks[t] = currSample;
                     }
                     else {
                         this._ticks[t] = this._interpolatePoint(currSample, nextSample, ratio);
                     }
-                    
+
                     t += tickLen;
                 }
             }
@@ -139,7 +156,7 @@ L.Playback.Track = L.Class.extend({
                 }
             };
         },
-        
+
         tick : function (timestamp) {
             if (timestamp > this._endTime)
                 timestamp = this._endTime;
@@ -147,32 +164,32 @@ L.Playback.Track = L.Class.extend({
                 timestamp = this._startTime;
             return this._ticks[timestamp];
         },
-        
+
         setMarker : function(timestamp, options){
             var lngLat = null;
-            
+
             // if time stamp is not set, then get first tick
             if (timestamp) {
                 lngLat = this.tick(timestamp);
             }
             else {
                 lngLat = this.getFirstTick();
-            }        
-        
+            }
+
             if (lngLat) {
                 var latLng = new L.LatLng(lngLat[1], lngLat[0]);
-                this._marker = new L.Playback.MoveableMarker(latLng, options, this._geoJSON);                
+                this._marker = new L.Playback.MoveableMarker(latLng, options, this._geoJSON);
             }
-            
+
             return this._marker;
         },
-        
+
         moveMarker : function(latLng, transitionTime) {
             if (this._marker) {
                 this._marker.move(latLng, transitionTime);
             }
         },
-        
+
         getMarker : function() {
             return this._marker;
         }
